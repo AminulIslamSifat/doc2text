@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OCR CLI — PaddleOCR + EasyOCR with unified output format."""
+"""OCR CLI — PaddleOCR with unified output format."""
 
 import os
 import json
@@ -20,7 +20,6 @@ import cv2
 import numpy as np
 
 _paddle_engines = {}
-_easyocr_readers = {}
 
 
 # ── PaddleOCR ──────────────────────────────────────────────────
@@ -74,54 +73,9 @@ def _run_paddle(img_path: str, threshold: float, lang: str) -> list[dict]:
     return results
 
 
-# ── EasyOCR ────────────────────────────────────────────────────
-
-def _get_easyocr_reader(langs: list[str]):
-    key = ",".join(sorted(langs))
-    if key not in _easyocr_readers:
-        import easyocr
-        _easyocr_readers[key] = easyocr.Reader(langs, gpu=False)
-    return _easyocr_readers[key]
-
-
-def _run_easyocr(img_path: str, threshold: float, lang: str) -> list[dict]:
-    # Map our lang codes to EasyOCR codes
-    lang_map = {
-        "bn": ["bn", "en"],
-        "hi": ["hi", "en"],
-        "en": ["en"],
-        "ar": ["ar", "en"],
-        "ch": ["ch_sim", "en"],
-        "korean": ["ko", "en"],
-        "japan": ["ja", "en"],
-        "devanagari": ["hi", "bn", "en"],
-    }
-    langs = lang_map.get(lang, [lang, "en"])
-
-    reader = _get_easyocr_reader(langs)
-    raw = reader.readtext(img_path)
-
-    results = []
-    for box, text, score in raw:
-        if score < threshold:
-            continue
-        # EasyOCR box: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
-        pts = np.array(box)
-        xmin = int(pts[:, 0].min())
-        ymin = int(pts[:, 1].min())
-        xmax = int(pts[:, 0].max())
-        ymax = int(pts[:, 1].max())
-        results.append({
-            "text": text,
-            "score": round(float(score), 4),
-            "box": [xmin, ymin, xmax, ymax],
-        })
-    return results
-
-
 # ── Unified entry point ───────────────────────────────────────
 
-ENGINES = {"paddle": _run_paddle, "easyocr": _run_easyocr}
+ENGINES = {"paddle": _run_paddle}
 
 def run_ocr(
     img_path: str,
@@ -134,8 +88,8 @@ def run_ocr(
     Args:
         img_path: Path to image
         confidence_threshold: Minimum score to include result
-        lang: Language code (en, bn, hi, ch, korean, japan, etc.)
-        engine: 'paddle' or 'easyocr'
+        lang: Language code (en, hi, ch, korean, japan, etc.)
+        engine: 'paddle'
     """
     if not Path(img_path).exists():
         raise FileNotFoundError(f"Image not found: {img_path}")
@@ -152,8 +106,8 @@ def main():
     parser.add_argument("-o", "--output", help="Output JSON path")
     parser.add_argument("-t", "--threshold", type=float, default=0.8)
     parser.add_argument("-l", "--lang", default="en",
-                        help="Language: en, bn, hi, ch, korean, japan, devanagari, etc.")
-    parser.add_argument("-e", "--engine", default="paddle", choices=["paddle", "easyocr"],
+                        help="Language: en, hi, ch, korean, japan, devanagari, etc.")
+    parser.add_argument("-e", "--engine", default="paddle", choices=["paddle"],
                         help="OCR engine (default: paddle)")
     args = parser.parse_args()
 
