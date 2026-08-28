@@ -33,3 +33,4 @@ Thumbs.db
 
 # uv
 .uv/
+.editor_tools_backups/
