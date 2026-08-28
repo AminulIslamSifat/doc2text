@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+.venv_v3/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PaddleOCR / EasyOCR model cache
+.paddleocr/
+.easyocr/
+
+# Output files
+*_ocr.json
+*_ocr_v3.json
+
+# uv
+.uv/

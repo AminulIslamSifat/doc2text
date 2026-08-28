@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>doc2text</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f0f0f; color: #e0e0e0;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 1.5rem; color: #c084fc; }
+
+  .drop-zone {
+    width: 100%; max-width: 600px; min-height: 200px;
+    border: 2px dashed #444; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #c084fc; background: #1a1a2e; }
+  .drop-zone p { color: #888; pointer-events: none; }
+  .drop-zone img {
+    max-width: 100%; max-height: 400px; object-fit: contain;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+  .drop-zone input { display: none; }
+
+  .controls {
+    display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+  }
+  .controls label { font-size: 0.85rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem; }
+  .controls input[type=range] { accent-color: #c084fc; }
+  .controls select {
+    background: #1a1a1a; color: #e0e0e0; border: 1px solid #444;
+    border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.85rem;
+  }
+  button {
+    margin-top: 1rem; padding: 0.7rem 2rem;
+    background: #7c3aed; color: white; border: none; border-radius: 8px;
+    font-size: 1rem; cursor: pointer; transition: background 0.2s;
+  }
+  button:hover { background: #6d28d9; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .canvas-wrap { margin-top: 1.5rem; position: relative; max-width: 600px; width: 100%; }
+  .canvas-wrap canvas { width: 100%; border-radius: 8px; border: 1px solid #333; }
+
+  .results {
+    margin-top: 1.5rem; width: 100%; max-width: 600px;
+    background: #1a1a1a; border-radius: 8px; padding: 1rem;
+    max-height: 300px; overflow-y: auto; font-size: 0.9rem;
+  }
+  .results .item {
+    padding: 0.4rem 0; border-bottom: 1px solid #222;
+    display: flex; justify-content: space-between;
+  }
+  .results .item:last-child { border-bottom: none; }
+  .results .score { color: #888; font-size: 0.8rem; }
+  .spinner { display: none; margin-top: 1rem; color: #c084fc; }
+</style>
+</head>
+<body>
+  <h1>doc2text</h1>
+
+  <div class="drop-zone" id="dropZone">
+    <p>Drop image here or click to upload</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div class="controls">
+    <label>Engine:
+      <select id="engineSelect">
+        <option value="paddle">PaddleOCR</option>
+        <option value="easyocr">EasyOCR</option>
+      </select>
+    </label>
+    <label>Language:
+      <select id="langSelect">
+        <option value="en">English</option>
+        <option value="bn">Bangla</option>
+        <option value="hi">Hindi</option>
+        <option value="devanagari">Devanagari (multi)</option>
+        <option value="ch">Chinese</option>
+        <option value="korean">Korean</option>
+        <option value="japan">Japanese</option>
+        <option value="ar">Arabic</option>
+      </select>
+    </label>
+    <label>Threshold: <span id="threshVal">0.8</span></label>
+    <input type="range" id="threshold" min="0.1" max="1.0" step="0.05" value="0.8">
+  </div>
+
+  <button id="runBtn" disabled>Run OCR</button>
+  <div class="spinner" id="spinner">Processing...</div>
+
+  <div class="canvas-wrap" id="canvasWrap" style="display:none;">
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="results" id="results" style="display:none;"></div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const runBtn = document.getElementById('runBtn');
+const spinner = document.getElementById('spinner');
+const canvasWrap = document.getElementById('canvasWrap');
+const canvas = document.getElementById('overlay');
+const resultsDiv = document.getElementById('results');
+const threshSlider = document.getElementById('threshold');
+const threshVal = document.getElementById('threshVal');
+const langSelect = document.getElementById('langSelect');
+const engineSelect = document.getElementById('engineSelect');
+
+let currentFile = null;
+let loadedImage = null;
+
+threshSlider.addEventListener('input', () => threshVal.textContent = threshSlider.value);
+
+// Auto-switch engine when Bangla is selected (PaddleOCR doesn't support bn)
+langSelect.addEventListener('change', () => {
+  if (langSelect.value === 'bn') {
+    engineSelect.value = 'easyocr';
+  }
+});
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) loadFile(fileInput.files[0]); });
+
+function loadFile(file) {
+  currentFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    dropZone.querySelector('p').style.display = 'none';
+    let img = dropZone.querySelector('img');
+    if (!img) { img = document.createElement('img'); dropZone.appendChild(img); }
+    img.src = e.target.result;
+    loadedImage = new Image();
+    loadedImage.onload = () => runBtn.disabled = false;
+    loadedImage.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+runBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  runBtn.disabled = true;
+  spinner.style.display = 'block';
+  resultsDiv.style.display = 'none';
+  canvasWrap.style.display = 'none';
+
+  const form = new FormData();
+  form.append('image', currentFile);
+
+  const params = new URLSearchParams({
+    threshold: threshSlider.value,
+    lang: langSelect.value,
+    engine: engineSelect.value,
+  });
+
+  try {
+    const res = await fetch(`/api/ocr?${params}`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    drawOverlay(data.results);
+    showResults(data.results);
+  } catch (err) {
+    alert('Request failed: ' + err.message);
+  } finally {
+    spinner.style.display = 'none';
+    runBtn.disabled = false;
+  }
+});
+
+function drawOverlay(results) {
+  if (!loadedImage || !results.length) return;
+  canvas.width = loadedImage.naturalWidth;
+  canvas.height = loadedImage.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(loadedImage, 0, 0);
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = Math.max(2, Math.round(loadedImage.naturalWidth / 300));
+  ctx.font = `${Math.max(12, Math.round(loadedImage.naturalWidth / 60))}px sans-serif`;
+  for (const item of results) {
+    const [x1, y1, x2, y2] = item.box;
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+    ctx.fillStyle = 'rgba(192,132,252,0.7)';
+    ctx.fillText(item.text, x1, y1 - 4);
+  }
+  canvasWrap.style.display = 'block';
+}
+
+function showResults(results) {
+  if (!results.length) {
+    resultsDiv.innerHTML = '<p style="color:#888">No text detected.</p>';
+  } else {
+    resultsDiv.innerHTML = results.map(r =>
+      `<div class="item"><span>${esc(r.text)}</span><span class="score">${(r.score * 100).toFixed(1)}%</span></div>`
+    ).join('');
+  }
+  resultsDiv.style.display = 'block';
+}
+
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+</script>
+</body>
+</html>
