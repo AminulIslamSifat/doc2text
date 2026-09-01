@@ -1,15 +1,22 @@
 [project]
 name = "doc2text"
 version = "0.1.0"
-description = "PaddleOCR + EasyOCR web app — upload image, get text"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "AminulIslamSifat", email = "aminulislamsifat5@gmail.com" }
+]
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.135.0",
-    "opencv-python>=4.11.0.86",
-    "paddleocr==2.10.0",
-    "paddlepaddle==3.2.0",
-    "pymupdf>=1.25.0",
-    "python-multipart>=0.0.9",
-    "setuptools>=80.4.0",
-    "uvicorn>=0.44.0",
+    "numpy>=2.5.2",
+    "pillow>=12.3.0",
+    "pytesseract>=0.3.13",
+    "requests>=2.34.2",
 ]
+
+[project.scripts]
+doc2text = "doc2text:main"
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"

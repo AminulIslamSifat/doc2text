@@ -1,36 +1,36 @@
-# Python
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized
 __pycache__/
 *.py[cod]
 *$py.class
-*.egg-info/
+
+# Distribution / packaging
 dist/
 build/
+*.egg-info/
 *.egg
 
-# Virtual environments
-.venv/
-.venv_v3/
-env/
+# uv
+uv.lock
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# PaddleOCR / EasyOCR model cache
-.paddleocr/
-.easyocr/
+# Testing / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Output files
-*_ocr.json
-*_ocr_v3.json
 
-# uv
-.uv/
-.editor_tools_backups/
+## Custom
