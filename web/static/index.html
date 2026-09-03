@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>doc2text — Bangla OCR</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2e3345;
+    --text: #e2e4ed;
+    --text-dim: #8b8fa3;
+    --accent: #7c6ef0;
+    --accent-hover: #9488f5;
+    --success: #4ade80;
+    --error: #f87171;
+    --radius: 12px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header .badge {
+    font-size: 11px;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  main {
+    flex: 1;
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .dropzone p {
+    color: var(--text-dim);
+    margin-top: 8px;
+    font-size: 14px;
+  }
+
+  .dropzone .icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+
+  .dropzone input { display: none; }
+
+  /* Results area */
+  .results { margin-top: 24px; }
+
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .file-header {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .file-name {
+    font-weight: 500;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 16px;
+  }
+
+  .file-actions { display: flex; gap: 8px; }
+
+  .btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+
+  .btn:hover { background: var(--surface2); border-color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  /* Progress bar */
+  .progress-wrap {
+    padding: 14px 18px;
+    display: none;
+  }
+
+  .progress-wrap.active { display: block; }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .progress-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  /* Text output */
+  .text-output {
+    padding: 18px;
+    font-family: 'Noto Sans Bengali', 'Kalpurush', sans-serif;
+    font-size: 15px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 500px;
+    overflow-y: auto;
+    display: none;
+  }
+
+  .text-output.visible { display: block; }
+
+  .corrections-info {
+    padding: 8px 18px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+
+  .corrections-info.visible { display: block; }
+
+  /* Status */
+  .status-error {
+    padding: 14px 18px;
+    color: var(--error);
+    font-size: 13px;
+    display: none;
+  }
+
+  .status-error.visible { display: block; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <h1>doc2text</h1>
+  <span class="badge">Bangla OCR</span>
+</header>
+
+<main>
+  <div class="dropzone" id="dropzone">
+    <div class="icon">📄</div>
+    <strong>Drop images or PDFs here</strong>
+    <p>or click to browse · PNG, JPG, JPEG, PDF</p>
+    <input type="file" id="fileInput" multiple accept=".png,.jpg,.jpeg,.pdf">
+  </div>
+
+  <div class="results" id="results"></div>
+</main>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const results = document.getElementById('results');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'pdf') {
+      processPdf(file);
+    } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+      processImage(file);
+    }
+  }
+  fileInput.value = '';
+}
+
+function createCard(filename) {
+  const card = document.createElement('div');
+  card.className = 'file-card';
+  card.innerHTML = `
+    <div class="file-header">
+      <div class="file-name"><span class="spinner"></span> ${escHtml(filename)}</div>
+      <div class="file-meta"></div>
+      <div class="file-actions"></div>
+    </div>
+    <div class="progress-wrap active">
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+      <div class="progress-text">Processing...</div>
+    </div>
+    <div class="status-error"></div>
+    <div class="text-output"></div>
+    <div class="corrections-info"></div>
+  `;
+  results.prepend(card);
+  return card;
+}
+
+function finishCard(card, text, wordCount, lineCount, corrections, filename) {
+  const spinner = card.querySelector('.spinner');
+  if (spinner) spinner.remove();
+
+  card.querySelector('.progress-wrap').classList.remove('active');
+
+  const meta = card.querySelector('.file-meta');
+  meta.innerHTML = `<span>${wordCount} words</span><span>${lineCount} lines</span>`;
+
+  const actions = card.querySelector('.file-actions');
+  actions.innerHTML = `<button class="btn btn-primary" onclick="downloadText(this)">Save .txt</button>`;
+
+  const output = card.querySelector('.text-output');
+  output.textContent = text;
+  output.classList.add('visible');
+  output.dataset.filename = filename;
+
+  if (corrections && corrections.length > 0) {
+    const info = card.querySelector('.corrections-info');
+    info.textContent = `${corrections.length} correction(s): ${corrections.map(c => c.original + ' → ' + c.corrected).join(', ')}`;
+    info.classList.add('visible');
+  }
+}
+
+function showError(card, msg) {
+  card.querySelector('.spinner')?.remove();
+  card.querySelector('.progress-wrap').classList.remove('active');
+  const err = card.querySelector('.status-error');
+  err.textContent = msg;
+  err.classList.add('visible');
+}
+
+async function processImage(file) {
+  const card = createCard(file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/ocr/image', { method: 'POST', body: formData });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    finishCard(card, data.text, data.word_count, data.line_count, data.corrections, file.name);
+  } catch (e) {
+    showError(card, e.message);
+  }
+}
+
+function processPdf(file) {
+  const card = createCard(file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Use fetch + ReadableStream for SSE
+  fetch('/api/ocr/pdf/stream', { method: 'POST', body: formData })
+    .then(res => {
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let allText = '';
+      let totalCorrections = [];
+      let totalWords = 0;
+      let totalLines = 0;
+
+      function pump() {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (allText) {
+              finishCard(card, allText, totalWords, totalLines, totalCorrections, file.name);
+            }
+            return;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === 'start') {
+                card.querySelector('.progress-text').textContent = `Processing 0 / ${event.total_pages} pages...`;
+              } else if (event.type === 'page') {
+                const pct = Math.round((event.page / event.total_pages) * 100);
+                card.querySelector('.progress-fill').style.width = pct + '%';
+                card.querySelector('.progress-text').textContent = `Processing ${event.page} / ${event.total_pages} pages...`;
+
+                if (event.page > 1) allText += '\n\n--- Page ' + event.page + ' ---\n\n';
+                else allText = ''; // first page, reset
+                allText += event.text;
+                totalWords += event.word_count;
+                totalLines += event.line_count;
+                totalCorrections.push(...event.corrections);
+              } else if (event.type === 'done') {
+                finishCard(card, allText, totalWords, totalLines, totalCorrections, file.name);
+              } else if (event.type === 'error') {
+                showError(card, event.message);
+              }
+            } catch (e) { /* skip malformed */ }
+          }
+          pump();
+        });
+      }
+      pump();
+    })
+    .catch(e => showError(card, e.message));
+}
+
+function downloadText(btn) {
+  const card = btn.closest('.file-card');
+  const output = card.querySelector('.text-output');
+  const text = output.textContent;
+  const filename = (output.dataset.filename || 'output').replace(/\.[^.]+$/, '') + '.txt';
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

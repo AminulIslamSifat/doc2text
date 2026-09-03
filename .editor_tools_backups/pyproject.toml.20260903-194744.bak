@@ -1,27 +1,38 @@
 [project]
 name = "doc2text"
-version = "0.2.0"
-description = "Bangla OCR engine with web UI for image/PDF to text conversion"
+version = "0.1.0"
+description = "Add your description here"
 readme = "README.md"
 authors = [
     { name = "AminulIslamSifat", email = "aminulislamsifat5@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "bnlp-toolkit>=4.4.1",
     "bnunicodenormalizer>=0.1.7",
-    "fastapi>=0.115.0",
     "numpy>=2.5.2",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
     "pymupdf>=1.28.2",
     "pytesseract>=0.3.13",
-    "python-multipart>=0.0.9",
+    "reportlab>=5.0.1",
+    "requests>=2.34.2",
+    "sentencepiece>=0.2.2",
     "symspellpy>=6.10.0",
-    "uvicorn>=0.30.0",
+    "torch>=2.14.0",
+    "transformers>=5.16.1",
 ]
 
 [project.scripts]
-doc2text = "web.server:main"
+doc2text = "doc2text:main"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]

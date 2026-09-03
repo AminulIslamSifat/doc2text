@@ -1,17 +1,12 @@
-"""Bangla OCR engine: image preprocessing, dual-pass Tesseract, word merging, text extraction."""
-
-import re
-from pathlib import Path
-from typing import Iterator
-
+import pytesseract as pts
+from PIL import Image
 import cv2
 import numpy as np
 import pymupdf
-import pytesseract as pts
 from bnunicodenormalizer import Normalizer
-
 from engine.corrector import correct_text
 
+FONT_PATH = "/usr/share/fonts/gnu-free/FreeSans.otf"
 _normalizer = Normalizer()
 
 
@@ -40,6 +35,7 @@ def extract_words(image: np.ndarray, lang: str, scale: int, min_conf: int = 25, 
         h = data["height"][i]
         if conf < min_conf or h < min_h:
             continue
+        # Normalize Bangla Unicode
         r = _normalizer(text)
         normalized = (r["normalized"] if r else None) or text
         words.append({
@@ -72,11 +68,24 @@ def merge_words(words_a: list[dict], words_b: list[dict], overlap_thresh: int = 
     return merged
 
 
-def _words_to_text(words: list[dict]) -> str:
-    """Convert sorted word list to text lines with spacing."""
+def ocr_to_text(image_path: str, lang: str = "eng+ben") -> str:
+    """Full pipeline: preprocess → dual OCR → merge → return raw text lines."""
+    img_cv = cv2.imread(image_path)
+
+    # Preprocess
+    gray_denoised, adaptive_bin, scale = preprocess(img_cv)
+
+    # Dual OCR
+    words_gray = extract_words(gray_denoised, lang, scale)
+    words_adapt = extract_words(adaptive_bin, lang, scale)
+
+    # Merge
+    words = merge_words(words_gray, words_adapt)
+
+    # Sort by position
     words.sort(key=lambda w: (w["top"], w["left"]))
 
-    # Deduplicate
+    # Deduplicate words at same position (not just consecutive)
     deduped: list[dict] = []
     for w in words:
         is_dup = False
@@ -90,20 +99,22 @@ def _words_to_text(words: list[dict]) -> str:
                 break
         if not is_dup:
             deduped.append(w)
+    words = deduped
 
-    # Group into lines
+    # Group into lines by vertical proximity
     lines: list[list[dict]] = []
-    for w in deduped:
+    line_thresh = 10
+    for w in words:
         placed = False
         for line in lines:
-            if abs(w["top"] - line[0]["top"]) <= 10:
+            if abs(w["top"] - line[0]["top"]) <= line_thresh:
                 line.append(w)
                 placed = True
                 break
         if not placed:
             lines.append([w])
 
-    # Build text with spacing
+    # Build text with spacing based on horizontal gaps
     result_lines = []
     for line in lines:
         line.sort(key=lambda w: w["left"])
@@ -117,84 +128,78 @@ def _words_to_text(words: list[dict]) -> str:
             parts.append(w["text"])
         result_lines.append("".join(parts))
 
-    # Post-processing
-    cleaned = []
+    # Post-processing: fix pipes, strip stray latin chars, collapse whitespace
+    cleaned_lines = []
     for line in result_lines:
+        # Pipe → Bangla danda
         line = line.replace("|", "।")
+        # Remove stray single Latin characters (noise artifacts)
+        import re
         line = re.sub(r'(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])', '', line)
+        # Collapse multiple spaces to max 2
         line = re.sub(r' {3,}', '  ', line)
-        cleaned.append(line.strip())
+        cleaned_lines.append(line.strip())
 
-    return "\n".join(cleaned)
+    raw_text = "\n".join(cleaned_lines)
 
-
-class OcrResult:
-    """Result of an OCR operation."""
-    def __init__(self, text: str, corrections: list[dict], word_count: int, line_count: int):
-        self.text = text
-        self.corrections = corrections
-        self.word_count = word_count
-        self.line_count = line_count
-
-
-def ocr_image(image_path: str | Path, lang: str = "ben") -> OcrResult:
-    """Full pipeline for a single image file."""
-    img_cv = cv2.imread(str(image_path))
-    if img_cv is None:
-        raise ValueError(f"Cannot read image: {image_path}")
-
-    gray_denoised, adaptive_bin, scale = preprocess(img_cv)
-    words_gray = extract_words(gray_denoised, lang, scale)
-    words_adapt = extract_words(adaptive_bin, lang, scale)
-    words = merge_words(words_gray, words_adapt)
-
-    raw_text = _words_to_text(words)
+    # Dictionary-based correction pass
     corrected_text, corrections = correct_text(raw_text)
 
-    lines = [l for l in corrected_text.split("\n") if l.strip()]
-    return OcrResult(
-        text=corrected_text,
-        corrections=corrections,
-        word_count=len(words),
-        line_count=len(lines),
-    )
+    print(f"Extracted {len(words)} words → {len(cleaned_lines)} lines")
+    print(f"  Gray: {len(words_gray)} | Adaptive: {len(words_adapt)} | Merged: {len(words)}")
+    if corrections:
+        print(f"  Corrections applied: {len(corrections)}")
+        for c in corrections:
+            print(f"    {c['original']} → {c['corrected']} (dist={c['distance']})")
+    return corrected_text
 
 
-def ocr_pdf_pages(pdf_path: str | Path, lang: str = "ben", dpi: int = 300) -> Iterator[tuple[int, OcrResult]]:
-    """OCR each page of a PDF. Yields (page_number, OcrResult) tuples."""
-    doc = pymupdf.open(str(pdf_path))
-    try:
-        for page_num in range(len(doc)):
-            page = doc[page_num]
-            pix = page.get_pixmap(dpi=dpi)
-            img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-            if pix.n == 4:
-                img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
-            elif pix.n == 1:
-                img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+def ocr_to_pdf(image_path: str, output_pdf: str, lang: str = "eng+ben") -> None:
+    """Full pipeline: preprocess → dual OCR → merge → normalize → render PDF."""
+    img_cv = cv2.imread(image_path)
+    orig_h, orig_w = img_cv.shape[:2]
 
-            gray_denoised, adaptive_bin, scale = preprocess(img_array)
-            words_gray = extract_words(gray_denoised, lang, scale)
-            words_adapt = extract_words(adaptive_bin, lang, scale)
-            words = merge_words(words_gray, words_adapt)
+    # Preprocess
+    gray_denoised, adaptive_bin, scale = preprocess(img_cv)
 
-            raw_text = _words_to_text(words)
-            corrected_text, corrections = correct_text(raw_text)
+    # Dual OCR: grayscale (primary) + adaptive binary (secondary)
+    words_gray = extract_words(gray_denoised, lang, scale)
+    words_adapt = extract_words(adaptive_bin, lang, scale)
 
-            lines = [l for l in corrected_text.split("\n") if l.strip()]
-            yield page_num, OcrResult(
-                text=corrected_text,
-                corrections=corrections,
-                word_count=len(words),
-                line_count=len(lines),
-            )
-    finally:
-        doc.close()
+    # Merge — grayscale is primary, adaptive fills gaps
+    words = merge_words(words_gray, words_adapt)
 
+    # Sort by position
+    words.sort(key=lambda w: (w["top"], w["left"]))
 
-def pdf_page_count(pdf_path: str | Path) -> int:
-    """Return number of pages in a PDF."""
-    doc = pymupdf.open(str(pdf_path))
-    count = len(doc)
+    # Font sizing
+    all_h = sorted(w["height"] for w in words)
+    median_h = all_h[len(all_h) // 2] if all_h else 12
+    base_font_size = median_h * 0.75
+
+    # Create PDF
+    doc = pymupdf.open()
+    page = doc.new_page(width=orig_w, height=orig_h)
+
+    for w in words:
+        font_size = min(w["height"] * 0.75, base_font_size * 1.2)
+        font_size = max(font_size, 5)
+        baseline_y = w["top"] + font_size * 0.85
+
+        page.insert_text(
+            pymupdf.Point(w["left"], baseline_y),
+            w["text"],
+            fontsize=font_size,
+            fontname="freesans",
+            fontfile=FONT_PATH,
+        )
+
+    doc.save(output_pdf)
     doc.close()
-    return count
+    print(f"PDF saved: {output_pdf} ({orig_w}x{orig_h} pts, {len(words)} words)")
+    print(f"  Gray: {len(words_gray)} | Adaptive: {len(words_adapt)} | Merged: {len(words)}")
+
+
+if __name__ == "__main__":
+    print("Languages:", pts.get_languages(config=''))
+    ocr_to_pdf("tests/assets/image/image-bangla.png", "output.pdf", lang="eng+ben")
