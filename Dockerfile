@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY . .
 
-RUN pip install --no-cache-dir uv && uv sync --frozen
+RUN pip install --no-cache-dir uv && uv sync
 
 EXPOSE 8765
 CMD ["uv", "run", "doc2text"]
