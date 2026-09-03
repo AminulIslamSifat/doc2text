@@ -73,8 +73,24 @@
 
   .header-actions {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 10px;
   }
+
+  .lang-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .lang-select:hover { border-color: var(--border-light); }
+  .lang-select:focus { border-color: var(--accent); }
 
   /* ── Layout ── */
   .app-layout {
@@ -447,6 +463,11 @@
     <span class="badge">Bangla OCR</span>
   </div>
   <div class="header-actions">
+    <select class="lang-select" id="langSelect">
+      <option value="ben" selected>বাংলা</option>
+      <option value="eng">English</option>
+      <option value="ben+eng">বাংলা + English</option>
+    </select>
     <button class="btn btn-icon" id="toggleHistory" title="Toggle history panel">📋</button>
   </div>
 </header>
@@ -726,15 +747,21 @@ function showError(card, msg) {
   err.classList.add('visible');
 }
 
+/* ── Language selector ── */
+function getSelectedLang() {
+  return document.getElementById('langSelect').value;
+}
+
 /* ── Image OCR ── */
 async function processImage(file) {
   const thumbnail = await generateThumbnail(file);
   const card = createCard(file.name, thumbnail);
+  const lang = getSelectedLang();
   const formData = new FormData();
   formData.append('file', file);
 
   try {
-    const res = await fetch('/api/ocr/image', { method: 'POST', body: formData });
+    const res = await fetch(`/api/ocr/image?lang=${encodeURIComponent(lang)}`, { method: 'POST', body: formData });
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     finishCard(card, data.text, data.word_count, data.line_count, data.corrections, file.name);
@@ -757,10 +784,11 @@ async function processImage(file) {
 /* ── PDF OCR ── */
 function processPdf(file) {
   const card = createCard(file.name);
+  const lang = getSelectedLang();
   const formData = new FormData();
   formData.append('file', file);
 
-  fetch('/api/ocr/pdf/stream', { method: 'POST', body: formData })
+  fetch(`/api/ocr/pdf/stream?lang=${encodeURIComponent(lang)}`, { method: 'POST', body: formData })
     .then(res => {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const reader = res.body.getReader();

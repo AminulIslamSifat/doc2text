@@ -17,9 +17,27 @@ _corrector = BanglaCorrector()
 _normalizer = Normalizer()
 
 
-def preprocess(img_cv: np.ndarray, scale: int = 4) -> tuple[np.ndarray, np.ndarray, int]:
-    """Upscale, grayscale, denoise. Returns (grayscale_denoised, adaptive_binary, scale)."""
-    img_up = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+def preprocess(img_cv: np.ndarray, scale: int = 0) -> tuple[np.ndarray, np.ndarray, int]:
+    """Upscale, grayscale, denoise. Returns (grayscale_denoised, adaptive_binary, scale).
+    
+    Auto-scales based on input resolution: images >2000px longest side use scale=1
+    (no upscale needed at 300 DPI). Smaller images get upscaled to ensure Tesseract
+    has enough pixel data for Bengali conjuncts.
+    """
+    h, w = img_cv.shape[:2]
+    longest = max(h, w)
+    if scale <= 0:
+        # Auto-determine scale: target ~3000px longest side for Tesseract
+        # Minimum floor: always ensure output >= 1500px longest side
+        MIN_LONGEST = 1500
+        if longest >= 2000:
+            scale = 1
+        elif longest >= MIN_LONGEST:
+            scale = 2
+        else:
+            # Scale up to reach MIN_LONGEST
+            scale = max(2, MIN_LONGEST // longest + 1)
+    img_up = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC) if scale > 1 else img_cv.copy()
     gray = cv2.cvtColor(img_up, cv2.COLOR_BGR2GRAY)
     denoised = cv2.fastNlMeansDenoising(gray, None, h=10, templateWindowSize=7, searchWindowSize=21)
     adaptive = cv2.adaptiveThreshold(
@@ -58,26 +76,61 @@ def extract_words(image: np.ndarray, lang: str, scale: int, min_conf: int = 25, 
 def merge_words(words_a: list[dict], words_b: list[dict], overlap_thresh: int = 8) -> list[dict]:
     """Merge two word lists. When overlapping, prefer dictionary-valid word.
     
-    Priority: 1) dictionary validity  2) confidence tiebreaker.
+    Priority: 1) center proximity  2) extreme width difference  3) dictionary validity  4) confidence.
     Tesseract's grayscale pass often hallucinates extra characters (e.g. হইরান vs ইরান)
     with higher confidence. Dictionary check catches this.
+    
+    FIX: Only treat words as overlapping if their CENTERS are close, not just bounding boxes.
+    Adjacent words on the same line (like অপরাহ্ণ and খলিফার) should both be kept.
+    When one detection is >>3x wider, prefer it regardless of validity — catches
+    cases like হস্তপদবদ্ধ (236px) vs এক (18px).
     """
+    _PUNCT_STRIP = set('।॥,.:;!?()[]{}\'"-/—–…·')
+    
+    def strip_punct(text: str) -> str:
+        return text.strip(''.join(_PUNCT_STRIP))
+    
+    def is_valid_stripped(text: str) -> bool:
+        """Check validity after stripping punctuation."""
+        stripped = strip_punct(text)
+        return _corrector.is_valid(stripped) if stripped else False
+    
+    def center_x(w: dict) -> float:
+        return w["left"] + w["width"] / 2
+    
     merged = list(words_a)
     for wb in words_b:
         dominated = False
         for wa in merged:
             y_close = abs(wa["top"] - wb["top"]) <= overlap_thresh
-            x_overlap = not (wa["left"] + wa["width"] < wb["left"] or
-                            wb["left"] + wb["width"] < wa["left"])
-            if y_close and x_overlap:
-                a_valid = _corrector.is_valid(wa["text"])
-                b_valid = _corrector.is_valid(wb["text"])
-                if b_valid and not a_valid:
+            # CRITICAL FIX: Check proximity based on width ratio
+            # - Similar widths: use center proximity (catches true duplicates)
+            # - Very different widths: use left-edge proximity (wide word starts at same place as narrow)
+            width_ratio = max(wa["width"], wb["width"]) / max(min(wa["width"], wb["width"]), 1)
+            if width_ratio > 2.0:
+                # Wide vs narrow — check if left edges are close (same starting position)
+                proximate = abs(wa["left"] - wb["left"]) <= min(wa["width"], wb["width"]) * 0.3
+            else:
+                # Similar widths — check center proximity
+                proximate = abs(center_x(wa) - center_x(wb)) <= min(wa["width"], wb["width"]) * 0.3
+            
+            if y_close and proximate:
+                a_valid = is_valid_stripped(wa["text"])
+                b_valid = is_valid_stripped(wb["text"])
+                
+                # If one word is >>3x wider, prefer it regardless of validity
+                width_ratio = max(wb["width"], wa["width"]) / max(min(wb["width"], wa["width"]), 1)
+                if width_ratio > 3.0:
+                    if wb["width"] > wa["width"]:
+                        wa.update(wb)
+                elif a_valid == b_valid:
+                    if wb["width"] > wa["width"] * 1.5:
+                        wa.update(wb)
+                    elif wb["conf"] > wa["conf"] + 10:
+                        wa.update(wb)
+                elif b_valid and not a_valid:
                     wa.update(wb)
-                elif a_valid and not b_valid:
-                    pass  # keep wa
-                elif wb["conf"] > wa["conf"]:
-                    wa.update(wb)
+                
                 dominated = True
                 break
         if not dominated:

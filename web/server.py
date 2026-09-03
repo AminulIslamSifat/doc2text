@@ -32,8 +32,8 @@ async def index():
 
 
 @app.post("/api/ocr/image")
-async def ocr_image(file: UploadFile = File(...)):
-    """OCR a single image file. Returns JSON result."""
+async def ocr_image(file: UploadFile = File(...), lang: str = "ben"):
+    """OCR a single image file. Returns JSON result. lang: ben, eng, ben+eng"""
     import traceback
     from engine.ocr import ocr_image as _ocr_image
 
@@ -42,9 +42,13 @@ async def ocr_image(file: UploadFile = File(...)):
     content = await file.read()
     tmp_path.write_bytes(content)
 
+    # Normalize lang param
+    lang_map = {"ben": "ben", "eng": "eng", "ben+eng": "ben+eng", "bn": "ben", "en": "eng"}
+    tesseract_lang = lang_map.get(lang, "ben")
+
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _ocr_image, str(tmp_path))
+        result = await loop.run_in_executor(None, _ocr_image, str(tmp_path), tesseract_lang)
         return {
             "filename": file.filename,
             "text": result.text,
@@ -61,9 +65,12 @@ async def ocr_image(file: UploadFile = File(...)):
 
 
 @app.post("/api/ocr/pdf/stream")
-async def ocr_pdf_stream(file: UploadFile = File(...)) -> StreamingResponse:
-    """OCR a PDF page-by-page with SSE progress streaming."""
+async def ocr_pdf_stream(file: UploadFile = File(...), lang: str = "ben") -> StreamingResponse:
+    """OCR a PDF page-by-page with SSE progress streaming. lang: ben, eng, ben+eng"""
     from engine.ocr import ocr_pdf_pages, pdf_page_count
+
+    lang_map = {"ben": "ben", "eng": "eng", "ben+eng": "ben+eng", "bn": "ben", "en": "eng"}
+    tesseract_lang = lang_map.get(lang, "ben")
 
     tmp_path = UPLOAD_DIR / f"{uuid.uuid4().hex}.pdf"
     content = await file.read()
@@ -75,7 +82,7 @@ async def ocr_pdf_stream(file: UploadFile = File(...)) -> StreamingResponse:
             total = await loop.run_in_executor(None, pdf_page_count, str(tmp_path))
             yield f"data: {json.dumps({'type': 'start', 'total_pages': total, 'filename': file.filename})}\n\n"
 
-            gen = ocr_pdf_pages(str(tmp_path))
+            gen = ocr_pdf_pages(str(tmp_path), lang=tesseract_lang)
             for page_num, result in gen:
                 page_data = {
                     "type": "page",
