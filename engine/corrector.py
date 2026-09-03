@@ -3,8 +3,8 @@
 import re
 from pathlib import Path
 
-_DICT_PATH = Path(__file__).parent / "data" / "bangla_words.txt"
-_CURATED_PATH = Path(__file__).parent / "data" / "bangla_curated.txt"
+_DICT_PATH = Path(__file__).parent / "data" / "bangla_words_expanded.txt"
+_CURATED_PATH = Path(__file__).parent / "data" / "bangla_curated_expanded.txt"
 _BANGLA_RANGE = re.compile(r'[\u0980-\u09FF]')
 _PUNCT = set('।॥,.:;!?()[]{}\'"-/—–…·')
 _BANGLA_DIGIT = re.compile(r'[\u09E6-\u09EF]')

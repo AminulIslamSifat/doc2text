@@ -10,7 +10,9 @@ import pymupdf
 import pytesseract as pts
 from bnunicodenormalizer import Normalizer
 
-from engine.corrector import correct_text
+from engine.corrector import correct_text, BanglaCorrector
+
+_corrector = BanglaCorrector()
 
 _normalizer = Normalizer()
 
@@ -54,7 +56,12 @@ def extract_words(image: np.ndarray, lang: str, scale: int, min_conf: int = 25, 
 
 
 def merge_words(words_a: list[dict], words_b: list[dict], overlap_thresh: int = 8) -> list[dict]:
-    """Merge two word lists, preferring higher confidence when positions overlap."""
+    """Merge two word lists. When overlapping, prefer dictionary-valid word.
+    
+    Priority: 1) dictionary validity  2) confidence tiebreaker.
+    Tesseract's grayscale pass often hallucinates extra characters (e.g. হইরান vs ইরান)
+    with higher confidence. Dictionary check catches this.
+    """
     merged = list(words_a)
     for wb in words_b:
         dominated = False
@@ -63,7 +70,13 @@ def merge_words(words_a: list[dict], words_b: list[dict], overlap_thresh: int = 
             x_overlap = not (wa["left"] + wa["width"] < wb["left"] or
                             wb["left"] + wb["width"] < wa["left"])
             if y_close and x_overlap:
-                if wb["conf"] > wa["conf"]:
+                a_valid = _corrector.is_valid(wa["text"])
+                b_valid = _corrector.is_valid(wb["text"])
+                if b_valid and not a_valid:
+                    wa.update(wb)
+                elif a_valid and not b_valid:
+                    pass  # keep wa
+                elif wb["conf"] > wa["conf"]:
                     wa.update(wb)
                 dominated = True
                 break
