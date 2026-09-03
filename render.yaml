@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: doc2text
+    runtime: python
+    buildCommand: pip install uv && uv sync
+    startCommand: uv run doc2text
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
