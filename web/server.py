@@ -26,7 +26,7 @@ UPLOAD_DIR = Path(tempfile.mkdtemp(prefix="doc2text_"))
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def index():
     return (WEB_DIR / "static" / "index.html").read_text(encoding="utf-8")
 
