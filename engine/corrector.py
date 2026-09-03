@@ -9,10 +9,7 @@ _BANGLA_RANGE = re.compile(r'[\u0980-\u09FF]')
 _PUNCT = set('।॥,.:;!?()[]{}\'"-/—–…·')
 _BANGLA_DIGIT = re.compile(r'[\u09E6-\u09EF]')
 
-# Known false corrections to block (dictionary has wrong entries)
-_BLOCK_CORRECTIONS = {
-    'পঙ্চবিংশতি',  # wrong; correct is পঞ্চবিংশতি
-}
+
 
 # Common Bangla inflectional suffixes to strip before dictionary lookup
 _SUFFIXES = [
@@ -105,19 +102,25 @@ class BanglaCorrector:
         if not suggestions:
             return None
 
-        # Single candidate = unique match, high confidence even if not curated
-        if len(suggestions) == 1:
-            term = suggestions[0].term
-            if term not in _BLOCK_CORRECTIONS:
-                return term
+        # Only accept corrections to curated (trusted) words.
+        # Among curated matches, prefer substitutions over deletions/insertions.
+        # Deletions (e.g. মাসকাল→মাকাল) often mean the original was a valid word we don't know.
+        curated_matches = [s.term for s in suggestions if s.term in self._curated]
+        if not curated_matches:
             return None
 
-        # Multiple candidates — only accept if one is in curated set
-        curated_matches = [s.term for s in suggestions if s.term in self._curated]
-        if curated_matches:
-            return curated_matches[0]
+        # Prefer same-length (substitution) matches — safest correction type
+        subs = [t for t in curated_matches if len(t) == len(word)]
+        if subs:
+            return subs[0]
 
-        # No curated match among multiple candidates — too ambiguous
+        # Reject pure deletions (candidate shorter than original).
+        # Deletions remove characters from OCR output — too risky when original
+        # might be a valid word absent from our dictionary (e.g. মাসকাল→মাকাল).
+        non_deletion = [t for t in curated_matches if len(t) >= len(word)]
+        if non_deletion:
+            return non_deletion[0]
+
         return None
 
     def correct_text(self, text: str) -> tuple[str, list[dict]]:

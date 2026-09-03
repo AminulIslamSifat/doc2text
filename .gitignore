@@ -34,3 +34,10 @@ htmlcov/
 
 
 ## Custom
+.editor_tools_backups/
+*.log
+.env
+.env.*
+uploads/
+*.tmp
+*.bak

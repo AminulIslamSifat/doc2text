@@ -9,15 +9,22 @@
     --bg: #0f1117;
     --surface: #1a1d27;
     --surface2: #232736;
+    --surface3: #2a2e3f;
     --border: #2e3345;
+    --border-light: #3a3f54;
     --text: #e2e4ed;
     --text-dim: #8b8fa3;
+    --text-muted: #5c6078;
     --accent: #7c6ef0;
     --accent-hover: #9488f5;
+    --accent-dim: rgba(124, 110, 240, 0.15);
     --success: #4ade80;
     --error: #f87171;
+    --warning: #fbbf24;
     --radius: 12px;
+    --radius-sm: 8px;
     --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-bn: 'Noto Sans Bengali', 'Kalpurush', sans-serif;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,130 +38,300 @@
     flex-direction: column;
   }
 
+  /* ── Header ── */
   header {
-    padding: 20px 32px;
+    padding: 8px 20px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   header h1 {
-    font-size: 20px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.3px;
   }
 
   header .badge {
-    font-size: 11px;
+    font-size: 9px;
     background: var(--accent);
     color: white;
-    padding: 2px 8px;
+    padding: 2px 7px;
     border-radius: 20px;
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  main {
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* ── Layout ── */
+  .app-layout {
     flex: 1;
-    max-width: 960px;
+    display: flex;
     width: 100%;
-    margin: 0 auto;
-    padding: 32px 24px;
+    min-height: 0;
   }
 
-  /* Drop zone */
+  .main-area {
+    flex: 1;
+    padding: 20px 24px;
+    min-width: 0;
+    overflow-y: auto;
+  }
+
+  .history-panel {
+    width: 240px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .history-panel.collapsed {
+    width: 0;
+    border: none;
+    overflow: hidden;
+  }
+
+  .history-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .history-item {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+  }
+
+  .history-item:hover {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  .history-item.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+  }
+
+  .history-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .history-item-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+  }
+
+  .history-item-preview {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.4;
+    max-height: 36px;
+    overflow: hidden;
+    font-family: var(--font-bn);
+  }
+
+  .history-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .history-clear-btn {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: var(--font);
+  }
+  .history-clear-btn:hover { color: var(--error); background: rgba(248,113,113,0.1); }
+
+  /* ── Drop zone ── */
   .dropzone {
     border: 2px dashed var(--border);
     border-radius: var(--radius);
-    padding: 48px 24px;
+    padding: 32px 24px;
     text-align: center;
     cursor: pointer;
     transition: all 0.2s;
     background: var(--surface);
+    position: relative;
   }
 
-  .dropzone:hover, .dropzone.dragover {
+  .dropzone:hover, .dropzone.dragover, .dropzone.paste-active {
     border-color: var(--accent);
     background: var(--surface2);
   }
 
-  .dropzone p {
-    color: var(--text-dim);
-    margin-top: 8px;
-    font-size: 14px;
+  .dropzone.paste-active {
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
 
-  .dropzone .icon {
-    font-size: 36px;
-    margin-bottom: 12px;
-    opacity: 0.6;
+  .dropzone .icon { font-size: 32px; margin-bottom: 10px; opacity: 0.5; }
+
+  .dropzone strong { font-size: 15px; }
+
+  .dropzone p {
+    color: var(--text-dim);
+    margin-top: 6px;
+    font-size: 13px;
+  }
+
+  .dropzone .paste-hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .kbd {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-family: var(--font);
+    color: var(--text-dim);
   }
 
   .dropzone input { display: none; }
 
-  /* Results area */
-  .results { margin-top: 24px; }
+  /* ── Results ── */
+  .results { margin-top: 20px; }
 
   .file-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     overflow: hidden;
+    animation: cardIn 0.25s ease-out;
+  }
+
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .file-header {
-    padding: 14px 18px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
     background: var(--surface2);
+    gap: 12px;
   }
 
   .file-name {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .file-name span.name-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
   .file-meta {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-dim);
     display: flex;
-    gap: 16px;
+    gap: 12px;
+    flex-shrink: 0;
   }
 
-  .file-actions { display: flex; gap: 8px; }
+  .file-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
   .btn {
-    padding: 6px 14px;
-    border-radius: 8px;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     transition: all 0.15s;
     font-family: var(--font);
+    white-space: nowrap;
   }
 
   .btn:hover { background: var(--surface2); border-color: var(--accent); }
   .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
   .btn-primary:hover { background: var(--accent-hover); }
-
-  /* Progress bar */
-  .progress-wrap {
-    padding: 14px 18px;
-    display: none;
+  .btn-icon {
+    padding: 5px 8px;
+    font-size: 13px;
+    line-height: 1;
   }
 
+  /* ── Progress ── */
+  .progress-wrap { padding: 12px 16px; display: none; }
   .progress-wrap.active { display: block; }
 
   .progress-bar {
-    height: 4px;
+    height: 3px;
     background: var(--border);
     border-radius: 2px;
     overflow: hidden;
@@ -169,20 +346,20 @@
   }
 
   .progress-text {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-dim);
     margin-top: 6px;
   }
 
-  /* Text output */
+  /* ── Text output ── */
   .text-output {
-    padding: 18px;
-    font-family: 'Noto Sans Bengali', 'Kalpurush', sans-serif;
-    font-size: 15px;
+    padding: 16px;
+    font-family: var(--font-bn);
+    font-size: 14px;
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 500px;
+    max-height: 450px;
     overflow-y: auto;
     display: none;
   }
@@ -190,34 +367,73 @@
   .text-output.visible { display: block; }
 
   .corrections-info {
-    padding: 8px 18px;
-    font-size: 12px;
-    color: var(--text-dim);
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--warning);
     border-top: 1px solid var(--border);
+    background: rgba(251, 191, 36, 0.05);
     display: none;
   }
 
   .corrections-info.visible { display: block; }
 
-  /* Status */
   .status-error {
-    padding: 14px 18px;
+    padding: 12px 16px;
     color: var(--error);
-    font-size: 13px;
+    font-size: 12px;
     display: none;
   }
 
   .status-error.visible { display: block; }
 
-  /* Spinner */
+  /* ── Spinner ── */
   @keyframes spin { to { transform: rotate(360deg); } }
   .spinner {
-    width: 16px; height: 16px;
+    width: 14px; height: 14px;
     border: 2px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* ── Toast ── */
+  .toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--text);
+    animation: toastIn 0.2s ease-out;
+    max-width: 300px;
+  }
+
+  .toast.error { border-color: var(--error); color: var(--error); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    .app-layout { flex-direction: column; }
+    .history-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 250px; order: -1; }
+    .history-panel.collapsed { max-height: 0; }
+    .main-area { padding: 20px 16px; }
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -226,27 +442,149 @@
 <body>
 
 <header>
-  <h1>doc2text</h1>
-  <span class="badge">Bangla OCR</span>
+  <div class="header-left">
+    <h1>doc2text</h1>
+    <span class="badge">Bangla OCR</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-icon" id="toggleHistory" title="Toggle history panel">📋</button>
+  </div>
 </header>
 
-<main>
-  <div class="dropzone" id="dropzone">
-    <div class="icon">📄</div>
-    <strong>Drop images or PDFs here</strong>
-    <p>or click to browse · PNG, JPG, JPEG, PDF</p>
-    <input type="file" id="fileInput" multiple accept=".png,.jpg,.jpeg,.pdf">
-  </div>
+<div class="app-layout">
+  <aside class="history-panel" id="historyPanel">
+    <div class="history-header">
+      <span>OCR History</span>
+      <button class="history-clear-btn" id="clearHistory">Clear</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">No OCR results yet</div>
+    </div>
+  </aside>
 
-  <div class="results" id="results"></div>
-</main>
+  <div class="main-area">
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📄</div>
+      <strong>Drop images or PDFs here</strong>
+      <p>or click to browse · PNG, JPG, JPEG, PDF</p>
+      <div class="paste-hint">
+        <span class="kbd">Ctrl</span>+<span class="kbd">V</span> to paste from clipboard
+      </div>
+      <input type="file" id="fileInput" multiple accept=".png,.jpg,.jpeg,.pdf">
+    </div>
+
+    <div class="results" id="results"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
 
 <script>
+/* ── State ── */
+const HISTORY_KEY = 'doc2text_history';
+const MAX_HISTORY = 50;
+const MAX_THUMB_SIZE = 8000; // bytes for base64 thumbnail
+
+/* ── DOM refs ── */
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const results = document.getElementById('results');
+const historyList = document.getElementById('historyList');
+const historyPanel = document.getElementById('historyPanel');
+const toggleHistoryBtn = document.getElementById('toggleHistory');
+const clearHistoryBtn = document.getElementById('clearHistory');
 
-dropzone.addEventListener('click', () => fileInput.click());
+/* ── Toast ── */
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, 3000);
+}
+
+/* ── History ── */
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveToHistory(entry) {
+  let history = getHistory();
+  entry.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  entry.timestamp = new Date().toISOString();
+  history.unshift(entry);
+  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    // Storage full — trim older entries
+    history = history.slice(0, Math.floor(MAX_HISTORY / 2));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  }
+  renderHistory();
+  return entry;
+}
+
+function renderHistory() {
+  const history = getHistory();
+  if (history.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">No OCR results yet</div>';
+    return;
+  }
+
+  historyList.innerHTML = history.map(h => {
+    const date = new Date(h.timestamp);
+    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const preview = (h.text || '').slice(0, 80).replace(/\n/g, ' ');
+    return `
+      <div class="history-item" data-id="${h.id}" onclick="restoreHistory('${h.id}')">
+        <div class="history-item-name">${escHtml(h.filename)}</div>
+        <div class="history-item-meta">
+          <span>${dateStr} ${timeStr}</span>
+          <span>${h.word_count || 0}w</span>
+          <span>${h.line_count || 0}l</span>
+        </div>
+        ${preview ? `<div class="history-item-preview">${escHtml(preview)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function restoreHistory(id) {
+  const history = getHistory();
+  const entry = history.find(h => h.id === id);
+  if (!entry) return;
+
+  // Highlight active
+  document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.history-item[data-id="${id}"]`)?.classList.add('active');
+
+  // Create a card with the stored result
+  const card = createCard(entry.filename, entry.thumbnail);
+  finishCard(card, entry.text, entry.word_count, entry.line_count, entry.corrections, entry.filename);
+}
+
+clearHistoryBtn.addEventListener('click', () => {
+  if (confirm('Clear all OCR history?')) {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+    showToast('History cleared', 'success');
+  }
+});
+
+toggleHistoryBtn.addEventListener('click', () => {
+  historyPanel.classList.toggle('collapsed');
+});
+
+/* ── Dropzone events ── */
+dropzone.addEventListener('click', (e) => {
+  if (e.target.closest('.paste-hint')) return;
+  fileInput.click();
+});
+
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
 dropzone.addEventListener('drop', e => {
@@ -254,8 +592,37 @@ dropzone.addEventListener('drop', e => {
   dropzone.classList.remove('dragover');
   handleFiles(e.dataTransfer.files);
 });
-fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
+fileInput.addEventListener('change', () => {
+  handleFiles(fileInput.files);
+  fileInput.value = '';
+});
+
+/* ── Clipboard paste ── */
+document.addEventListener('paste', async (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      if (!blob) continue;
+
+      dropzone.classList.add('paste-active');
+      setTimeout(() => dropzone.classList.remove('paste-active'), 600);
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const ext = item.type.split('/')[1] || 'png';
+      const file = new File([blob], `paste-${timestamp}.${ext}`, { type: item.type });
+      processImage(file);
+      showToast('Image pasted from clipboard', 'success');
+      return;
+    }
+  }
+});
+
+/* ── File handling ── */
 function handleFiles(files) {
   for (const file of files) {
     const ext = file.name.split('.').pop().toLowerCase();
@@ -263,17 +630,52 @@ function handleFiles(files) {
       processPdf(file);
     } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
       processImage(file);
+    } else {
+      showToast(`Unsupported format: .${ext}`, 'error');
     }
   }
-  fileInput.value = '';
 }
 
-function createCard(filename) {
+/* ── Thumbnail generation ── */
+async function generateThumbnail(file) {
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+
+    const canvas = document.createElement('canvas');
+    const maxSize = 64;
+    const scale = Math.min(maxSize / img.width, maxSize / img.height);
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+    // Only store if small enough
+    if (dataUrl.length <= MAX_THUMB_SIZE) return dataUrl;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/* ── Card creation ── */
+function createCard(filename, thumbnail) {
   const card = document.createElement('div');
   card.className = 'file-card';
+  const thumbHtml = thumbnail ? `<img class="file-thumb" src="${thumbnail}" alt="">` : '';
   card.innerHTML = `
     <div class="file-header">
-      <div class="file-name"><span class="spinner"></span> ${escHtml(filename)}</div>
+      <div class="file-name">
+        ${thumbHtml}
+        <span class="spinner"></span>
+        <span class="name-text">${escHtml(filename)}</span>
+      </div>
       <div class="file-meta"></div>
       <div class="file-actions"></div>
     </div>
@@ -299,7 +701,10 @@ function finishCard(card, text, wordCount, lineCount, corrections, filename) {
   meta.innerHTML = `<span>${wordCount} words</span><span>${lineCount} lines</span>`;
 
   const actions = card.querySelector('.file-actions');
-  actions.innerHTML = `<button class="btn btn-primary" onclick="downloadText(this)">Save .txt</button>`;
+  actions.innerHTML = `
+    <button class="btn" onclick="copyText(this)">Copy</button>
+    <button class="btn btn-primary" onclick="downloadText(this)">Save .txt</button>
+  `;
 
   const output = card.querySelector('.text-output');
   output.textContent = text;
@@ -321,8 +726,10 @@ function showError(card, msg) {
   err.classList.add('visible');
 }
 
+/* ── Image OCR ── */
 async function processImage(file) {
-  const card = createCard(file.name);
+  const thumbnail = await generateThumbnail(file);
+  const card = createCard(file.name, thumbnail);
   const formData = new FormData();
   formData.append('file', file);
 
@@ -331,17 +738,28 @@ async function processImage(file) {
     if (!res.ok) throw new Error(`Server error: ${res.status}`);
     const data = await res.json();
     finishCard(card, data.text, data.word_count, data.line_count, data.corrections, file.name);
+
+    saveToHistory({
+      filename: file.name,
+      text: data.text,
+      word_count: data.word_count,
+      line_count: data.line_count,
+      corrections: data.corrections,
+      thumbnail,
+      type: 'image',
+    });
   } catch (e) {
     showError(card, e.message);
+    showToast(e.message, 'error');
   }
 }
 
+/* ── PDF OCR ── */
 function processPdf(file) {
   const card = createCard(file.name);
   const formData = new FormData();
   formData.append('file', file);
 
-  // Use fetch + ReadableStream for SSE
   fetch('/api/ocr/pdf/stream', { method: 'POST', body: formData })
     .then(res => {
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -358,6 +776,15 @@ function processPdf(file) {
           if (done) {
             if (allText) {
               finishCard(card, allText, totalWords, totalLines, totalCorrections, file.name);
+              saveToHistory({
+                filename: file.name,
+                text: allText,
+                word_count: totalWords,
+                line_count: totalLines,
+                corrections: totalCorrections,
+                thumbnail: null,
+                type: 'pdf',
+              });
             }
             return;
           }
@@ -379,13 +806,22 @@ function processPdf(file) {
                 card.querySelector('.progress-text').textContent = `Processing ${event.page} / ${event.total_pages} pages...`;
 
                 if (event.page > 1) allText += '\n\n--- Page ' + event.page + ' ---\n\n';
-                else allText = ''; // first page, reset
+                else allText = '';
                 allText += event.text;
                 totalWords += event.word_count;
                 totalLines += event.line_count;
                 totalCorrections.push(...event.corrections);
               } else if (event.type === 'done') {
                 finishCard(card, allText, totalWords, totalLines, totalCorrections, file.name);
+                saveToHistory({
+                  filename: file.name,
+                  text: allText,
+                  word_count: totalWords,
+                  line_count: totalLines,
+                  corrections: totalCorrections,
+                  thumbnail: null,
+                  type: 'pdf',
+                });
               } else if (event.type === 'error') {
                 showError(card, event.message);
               }
@@ -396,7 +832,20 @@ function processPdf(file) {
       }
       pump();
     })
-    .catch(e => showError(card, e.message));
+    .catch(e => {
+      showError(card, e.message);
+      showToast(e.message, 'error');
+    });
+}
+
+/* ── Actions ── */
+function copyText(btn) {
+  const card = btn.closest('.file-card');
+  const text = card.querySelector('.text-output').textContent;
+  navigator.clipboard.writeText(text).then(
+    () => showToast('Copied to clipboard', 'success'),
+    () => showToast('Copy failed', 'error')
+  );
 }
 
 function downloadText(btn) {
@@ -419,6 +868,9 @@ function escHtml(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+/* ── Init ── */
+renderHistory();
 </script>
 </body>
 </html>
